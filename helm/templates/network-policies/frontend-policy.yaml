@@ -1,0 +1,48 @@
+{{- if .Values.networkPolicies.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+      app.kubernetes.io/part-of: {{ include "voting-app.name" . }}
+      app: vote
+  ingress:
+  # Allow ingress from anywhere (for public access)
+  - {}
+  egress:
+  # Allow egress only to backend and database services
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: result-frontend-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+      app.kubernetes.io/part-of: {{ include "voting-app.name" . }}
+      app: result
+  ingress:
+  # Allow ingress from anywhere (for public access)
+  - {}
+  egress:
+  # Allow egress only to database service
+  - to:
+    - podSelector:
+        matchLabels:
+          app: db
+    ports:
+    - protocol: TCP
+      port: 5432
+{{- end }}

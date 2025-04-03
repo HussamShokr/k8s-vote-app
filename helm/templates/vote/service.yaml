@@ -1,0 +1,19 @@
+{{- if .Values.vote.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.vote.name }}
+  labels:
+    {{- include "voting-app.vote.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.vote.service.type }}
+  ports:
+  - name: "vote-service"
+    port: {{ .Values.vote.service.port }}
+    targetPort: {{ .Values.vote.service.targetPort }}
+    {{- if and (eq .Values.vote.service.type "NodePort") .Values.vote.service.nodePort }}
+    nodePort: {{ .Values.vote.service.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "voting-app.vote.labels" . | nindent 4 }}
+{{- end }}

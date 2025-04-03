@@ -1,0 +1,17 @@
+apiVersion: v2
+name: voting-app
+description: A Helm chart for deploying a multi-tier voting application with Ingress and auto-renewing SSL
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - voting
+  - multi-tier
+maintainers:
+  - name: Admin
+    email: admin@example.com
+dependencies:
+  - name: cert-manager
+    version: ~1.13.2
+    repository: https://charts.jetstack.io
+    condition: certManager.enabled

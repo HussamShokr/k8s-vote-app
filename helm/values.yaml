@@ -1,0 +1,185 @@
+# Global values
+global:
+  namespace: default
+  env: production
+
+# Database (PostgreSQL) configuration
+db:
+  enabled: true
+  name: db
+  image: postgres:15-alpine
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 1Gi
+    accessMode: ReadWriteOnce
+  env:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    PGDATA: /var/lib/postgresql/data/pgdata
+  backup:
+    enabled: true
+    schedule: "*/1 * * * *"  
+    image: bitnami/postgresql:15
+    retention: 7  # Days to keep backups
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    storage:
+      size: 2Gi
+      storageClass: "standard"
+
+# Redis configuration
+redis:
+  enabled: true
+  name: redis
+  image: redis:alpine
+  replicas: 1
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 1Gi
+    accessMode: ReadWriteOnce
+
+# Vote frontend configuration
+vote:
+  enabled: true
+  name: vote
+  image: kodekloud/examplevotingapp_vote:v1
+  replicas: 1
+  service:
+    type: NodePort
+    port: 8080
+    targetPort: 80
+    nodePort: 31000
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+# Result frontend configuration
+result:
+  enabled: true
+  name: result
+  image: kodekloud/examplevotingapp_result:v1
+  replicas: 1
+  service:
+    type: NodePort
+    port: 8081
+    targetPort: 80
+    nodePort: 31001
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+# Worker backend configuration
+worker:
+  enabled: true
+  name: worker
+  image: kodekloud/examplevotingapp_worker:v2
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  canary:
+    enabled: true
+    image: kodekloud/examplevotingapp_worker:v2
+    replicas: 1
+    weight: 20  # Percentage of traffic to route to canary
+
+# Network Policies
+networkPolicies:
+  enabled: true
+  frontendLabels:
+    - app: vote
+    - app: result
+  backendLabels:
+    - app: worker
+  databaseLabels:
+    - app: db
+    - app: redis
+# Ingress Configuration
+ingress:
+  enabled: true
+  name: voting-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  paths:
+    vote: /vote(/|$)(.*)
+    result: /result(/|$)(.*)
+  services:
+    vote:
+      name: vote
+      port: 8080
+    result:
+      name: result
+      port: 8081
+
+
+# Certificate Management
+certificate:
+  enabled: true
+  name: voting-app-tls
+  secretName: voting-app-tls
+  duration: 2160h  # 90 days
+  renewBefore: 360h  # 15 days
+  organization: "Voting App"
+  wildcardDomain: true
+
+# Cluster Issuer for self-signed certificates
+clusterIssuer:
+  enabled: true
+  name: selfsigned-issuer
+
+# Cert Manager configuration
+certManager:
+  enabled: false  # Set to true to install cert-manager as part of this chart

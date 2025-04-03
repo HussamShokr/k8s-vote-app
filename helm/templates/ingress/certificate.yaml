@@ -1,0 +1,36 @@
+{{- if and .Values.certificate.enabled .Values.clusterIssuer.enabled (hasKey .Values.global "hostname") (ne .Values.global.hostname "") (ne .Values.global.hostname "null") }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificate.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "voting-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  secretName: {{ .Values.certificate.secretName }}
+  duration: {{ .Values.certificate.duration }}
+  renewBefore: {{ .Values.certificate.renewBefore }}
+  subject:
+    organizations:
+      - {{ .Values.certificate.organization }}
+  commonName: {{ .Values.global.hostname }}
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - {{ .Values.global.hostname }}
+{{- if .Values.certificate.wildcardDomain }}
+    - "*.{{ .Values.global.hostname }}"
+{{- end }}
+  issuerRef:
+    name: {{ .Values.clusterIssuer.name }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}

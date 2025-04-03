@@ -1,0 +1,26 @@
+{{- if and .Values.worker.enabled .Values.worker.canary.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.worker.name }}-canary
+  labels:
+    {{- include "voting-app.worker.labels" . | nindent 4 }}
+    version: canary
+spec:
+  replicas: {{ .Values.worker.canary.replicas }}
+  selector:
+    matchLabels:
+      {{- include "voting-app.worker.labels" . | nindent 6 }}
+      version: canary
+  template:
+    metadata:
+      labels:
+        {{- include "voting-app.worker.labels" . | nindent 8 }}
+        version: canary
+    spec:
+      containers:
+      - name: worker
+        image: {{ .Values.worker.canary.image }}
+        resources:
+          {{- toYaml .Values.worker.resources | nindent 10 }}
+{{- end }}

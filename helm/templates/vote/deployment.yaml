@@ -1,0 +1,26 @@
+{{- if .Values.vote.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.vote.name }}
+  labels:
+    {{- include "voting-app.vote.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.vote.replicas }}
+  selector:
+    matchLabels:
+      {{- include "voting-app.vote.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "voting-app.vote.labels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: vote
+        image: {{ .Values.vote.image }}
+        ports:
+        - containerPort: 80
+          name: vote
+        resources:
+          {{- toYaml .Values.vote.resources | nindent 10 }}
+{{- end }}

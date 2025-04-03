@@ -1,0 +1,72 @@
+{{- if and .Values.ingress.enabled (hasKey .Values.global "hostname") (ne .Values.global.hostname "") (ne .Values.global.hostname "null") }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "voting-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- if and .Values.certificate.enabled .Values.clusterIssuer.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.clusterIssuer.name | quote }}
+    {{- end }}
+spec:
+  {{- if and .Values.certificate.enabled .Values.clusterIssuer.enabled }}
+  tls:
+  - hosts:
+    - {{ .Values.global.hostname }}
+    secretName: {{ .Values.certificate.secretName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.global.hostname }}
+    http:
+      paths:
+      # Vote UI
+      {{- if .Values.vote.enabled }}
+      - path: {{ .Values.ingress.paths.vote | default "/vote(/|$)(.*)" }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.vote.name }}
+            port:
+              number: {{ .Values.vote.service.port }}
+      {{- end }}
+      
+      # Result UI
+      {{- if .Values.result.enabled }}
+      - path: {{ .Values.ingress.paths.result | default "/result(/|$)(.*)" }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.result.name }}
+            port:
+              number: {{ .Values.result.service.port }}
+      {{- end }}
+      
+      # Additional services
+      {{- range $key, $service := .Values.ingress.services }}
+      - path: {{ index $.Values.ingress.paths $key | default (printf "/%s(/|$)(.*)" $key) }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ $service.name }}
+            port:
+              number: {{ $service.port }}
+      {{- end }}
+      
+      # Default route
+      {{- if .Values.vote.enabled }}
+      - path: /()(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.vote.name }}
+            port:
+              number: {{ .Values.vote.service.port }}
+      {{- end }}
+{{- end }}

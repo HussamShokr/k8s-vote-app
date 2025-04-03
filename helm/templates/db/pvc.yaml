@@ -1,0 +1,21 @@
+{{- if and .Values.db.enabled .Values.db.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.db.name }}-pvc
+  labels:
+    {{- include "voting-app.db.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.db.persistence.accessMode }}
+  {{- if .Values.db.persistence.storageClass }}
+  {{- if (eq "-" .Values.db.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.db.persistence.storageClass }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.db.persistence.size }}
+{{- end }}

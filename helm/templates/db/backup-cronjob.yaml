@@ -1,0 +1,75 @@
+{{- if and .Values.db.enabled .Values.db.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.db.name }}-backup
+  labels:
+    {{- include "voting-app.db.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.db.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.db.backup.retention }}
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: {{ .Values.db.backup.image }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              # Create a directory with appropriate permissions
+              mkdir -p /backups
+              chmod 777 /backups
+              
+              BACKUP_FILE="/backups/postgres-$(date +%Y%m%d-%H%M%S).dump"
+              echo "Creating backup: $BACKUP_FILE"
+              pg_dump -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} -d postgres -F c -f $BACKUP_FILE
+              
+              # Set appropriate permissions on the backup file
+              chmod 644 $BACKUP_FILE
+              
+              # Clean up old backups
+              find /backups -name "postgres-*.dump" -type f -mtime +{{ .Values.db.backup.retention }} -delete 2>/dev/null || true
+            env:
+            - name: PGPASSWORD
+              value: {{ .Values.db.env.POSTGRES_PASSWORD }}
+            resources:
+              {{- toYaml .Values.db.backup.resources | nindent 14 }}
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          securityContext:
+            runAsUser: 0
+            fsGroup: 0
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: {{ .Values.db.name }}-backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.db.name }}-backup-pvc
+  labels:
+    {{- include "voting-app.db.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.db.backup.storage.storageClass }}
+  {{- if (eq "-" .Values.db.backup.storage.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.db.backup.storage.storageClass }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.db.backup.storage.size }}
+{{- end }}

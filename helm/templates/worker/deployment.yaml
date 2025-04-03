@@ -1,0 +1,26 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.worker.name }}
+  labels:
+    {{- include "voting-app.worker.labels" . | nindent 4 }}
+    version: stable
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "voting-app.worker.labels" . | nindent 6 }}
+      version: stable
+  template:
+    metadata:
+      labels:
+        {{- include "voting-app.worker.labels" . | nindent 8 }}
+        version: stable
+    spec:
+      containers:
+      - name: worker
+        image: {{ .Values.worker.image }}
+        resources:
+          {{- toYaml .Values.worker.resources | nindent 10 }}
+{{- end }}

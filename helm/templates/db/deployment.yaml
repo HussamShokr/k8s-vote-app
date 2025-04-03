@@ -1,0 +1,42 @@
+{{- if .Values.db.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.db.name }}
+  labels:
+    {{- include "voting-app.db.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.db.replicas }}
+  selector:
+    matchLabels:
+      {{- include "voting-app.db.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "voting-app.db.labels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: postgres
+        image: {{ .Values.db.image }}
+        env:
+        {{- range $key, $value := .Values.db.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - containerPort: 5432
+          name: postgres
+        resources:
+          {{- toYaml .Values.db.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: db-data
+      volumes:
+      - name: db-data
+        {{- if .Values.db.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.db.name }}-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+{{- end }}

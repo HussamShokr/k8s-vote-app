@@ -1,0 +1,19 @@
+{{- if .Values.result.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.result.name }}
+  labels:
+    {{- include "voting-app.result.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.result.service.type }}
+  ports:
+  - name: "result-service"
+    port: {{ .Values.result.service.port }}
+    targetPort: {{ .Values.result.service.targetPort }}
+    {{- if and (eq .Values.result.service.type "NodePort") .Values.result.service.nodePort }}
+    nodePort: {{ .Values.result.service.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "voting-app.result.labels" . | nindent 4 }}
+{{- end }}
