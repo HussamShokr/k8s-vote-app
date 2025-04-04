@@ -47,7 +47,7 @@ The voting application consists of the following components:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/voting-app-k8s.git
+git clone https://github.com/HussamShokr/k8s-vote-app.git
 cd voting-app-k8s
 ```
 
