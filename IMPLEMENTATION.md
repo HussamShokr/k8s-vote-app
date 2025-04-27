@@ -127,7 +127,7 @@ kubectl get pods -n ingress-nginx
 2. **Clone the Repository**
 
 ```bash
-git clone https://github.com/yourusername/voting-app-k8s.git
+git clone https://github.com/HussamShokr/voting-app-k8s.git
 cd voting-app-k8s
 ```
 
