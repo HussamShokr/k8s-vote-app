@@ -2,5 +2,13 @@ dependencies:
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.13.6
-digest: sha256:b303c865951afdc20d4e1499401f172d67697172c229e338d6484013a7a87cdd
+  digest: sha256:42db6fc451fb873ce4560bd4c77b934ec5f73fd9e78a12be4d12fe93880f6ada
+- name: kube-prometheus-stack
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 70.4.1
+  digest: sha256:27a1c10d19c43c3030927bf22af3ee71178f17c38f6c3d040ecc81c3dcbcd775
+- name: loki-stack
+  repository: https://grafana.github.io/helm-charts
+  version: 2.10.2
+  digest: sha256:92aff2644e1a76ebe092ca4cd28bf8861bbf8004f3a9d7d6c07550b4963ee9d5
 generated: "2025-04-03T15:08:22.404799211+02:00"

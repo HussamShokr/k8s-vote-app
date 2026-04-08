@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tar -tzf kube-prometheus-stack-70.4.1.tgz)",
+      "Bash(tar -tzf loki-stack-2.10.2.tgz)"
+    ]
+  }
+}

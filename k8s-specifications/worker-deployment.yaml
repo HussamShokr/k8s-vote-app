@@ -18,9 +18,26 @@ spec:
       - image: kodekloud/examplevotingapp_worker:v2
         name: worker
         resources:
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
           requests:
             memory: "256Mi"
             cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "exit 0"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "exit 0"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3

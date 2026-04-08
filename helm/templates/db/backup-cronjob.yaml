@@ -37,7 +37,10 @@ spec:
               find /backups -name "postgres-*.dump" -type f -mtime +{{ .Values.db.backup.retention }} -delete 2>/dev/null || true
             env:
             - name: PGPASSWORD
-              value: {{ .Values.db.env.POSTGRES_PASSWORD }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.name }}-secret
+                  key: postgres-password
             resources:
               {{- toYaml .Values.db.backup.resources | nindent 14 }}
             volumeMounts:

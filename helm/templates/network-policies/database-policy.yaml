@@ -2,57 +2,54 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: db-policy
+  name: database-postgres-policy
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: database
-      app.kubernetes.io/part-of: {{ include "voting-app.name" . }}
-      app: db
+      app: {{ .Values.db.name }}
   ingress:
-  # Allow ingress only from backend and result frontend
+  # Allow from worker and result frontend
   - from:
     - podSelector:
         matchLabels:
-          app: worker
+          app: {{ .Values.worker.name }}
     - podSelector:
         matchLabels:
-          app: result
+          app: {{ .Values.result.name }}
     ports:
     - protocol: TCP
       port: 5432
-  # Allow ingress from backup job
+  # Allow from backup CronJob pods
   - from:
     - podSelector:
         matchLabels:
+          app: {{ .Values.db.name }}
           app.kubernetes.io/component: backup
     ports:
     - protocol: TCP
       port: 5432
-  egress: []  # No egress needed for database
+  egress: []
 
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: redis-policy
+  name: database-redis-policy
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: database
-      app.kubernetes.io/part-of: {{ include "voting-app.name" . }}
-      app: redis
+      app: {{ .Values.redis.name }}
   ingress:
-  # Allow ingress only from frontend and backend
+  # Allow from vote frontend and worker
   - from:
     - podSelector:
         matchLabels:
-          app: vote
+          app: {{ .Values.vote.name }}
     - podSelector:
         matchLabels:
-          app: worker
+          app: {{ .Values.worker.name }}
     ports:
     - protocol: TCP
       port: 6379
-  egress: []  # No egress needed for database
+  egress: []
 {{- end }}

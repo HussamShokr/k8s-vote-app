@@ -1,4 +1,13 @@
 {{- if and .Values.worker.enabled .Values.worker.canary.enabled }}
+{{- /*
+  Compute canary replica count from weight percentage.
+  Formula: canary = max(1, round(stableReplicas * weight / (100 - weight)))
+  Example: weight=20, stable=4 → canary = round(4*20/80) = round(1.0) = 1
+           total=5 pods, canary handles ~20% of queue work.
+*/}}
+{{- $weight := .Values.worker.canary.weight | int }}
+{{- $stable := .Values.worker.replicas | int }}
+{{- $canaryReplicas := max 1 (div (mul $stable $weight) (sub 100 $weight)) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,8 +15,11 @@ metadata:
   labels:
     {{- include "voting-app.worker.labels" . | nindent 4 }}
     version: canary
+  annotations:
+    # Canary weight target: {{ $weight }}% of traffic (by replica ratio)
+    # Stable replicas: {{ $stable }}, Canary replicas: {{ $canaryReplicas }}
 spec:
-  replicas: {{ .Values.worker.canary.replicas }}
+  replicas: {{ $canaryReplicas }}
   selector:
     matchLabels:
       {{- include "voting-app.worker.labels" . | nindent 6 }}

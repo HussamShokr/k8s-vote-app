@@ -23,6 +23,22 @@ spec:
           name: redis
         resources:
           {{- toYaml .Values.redis.resources | nindent 10 }}
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
         volumeMounts:
         - mountPath: /data
           name: redis-data

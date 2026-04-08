@@ -26,6 +26,17 @@ spec:
   - host: {{ .Values.global.hostname }}
     http:
       paths:
+      # Default route → Vote UI
+      {{- if .Values.vote.enabled }}
+      - path: /()(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.vote.name }}
+            port:
+              number: {{ .Values.vote.service.port }}
+      {{- end }}
+
       # Vote UI
       {{- if .Values.vote.enabled }}
       - path: {{ .Values.ingress.paths.vote | default "/vote(/|$)(.*)" }}
@@ -36,7 +47,7 @@ spec:
             port:
               number: {{ .Values.vote.service.port }}
       {{- end }}
-      
+
       # Result UI
       {{- if .Values.result.enabled }}
       - path: {{ .Values.ingress.paths.result | default "/result(/|$)(.*)" }}
@@ -46,27 +57,5 @@ spec:
             name: {{ .Values.result.name }}
             port:
               number: {{ .Values.result.service.port }}
-      {{- end }}
-      
-      # Additional services
-      {{- range $key, $service := .Values.ingress.services }}
-      - path: {{ index $.Values.ingress.paths $key | default (printf "/%s(/|$)(.*)" $key) }}
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ $service.name }}
-            port:
-              number: {{ $service.port }}
-      {{- end }}
-      
-      # Default route
-      {{- if .Values.vote.enabled }}
-      - path: /()(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ .Values.vote.name }}
-            port:
-              number: {{ .Values.vote.service.port }}
       {{- end }}
 {{- end }}

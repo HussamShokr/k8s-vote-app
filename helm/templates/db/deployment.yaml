@@ -19,15 +19,41 @@ spec:
       - name: postgres
         image: {{ .Values.db.image }}
         env:
-        {{- range $key, $value := .Values.db.env }}
-        - name: {{ $key }}
-          value: {{ $value | quote }}
-        {{- end }}
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.name }}-secret
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.name }}-secret
+              key: postgres-password
+        - name: PGDATA
+          value: {{ .Values.db.env.PGDATA | quote }}
         ports:
         - containerPort: 5432
           name: postgres
         resources:
           {{- toYaml .Values.db.resources | nindent 10 }}
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U {{ .Values.db.env.POSTGRES_USER }} -d postgres
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U {{ .Values.db.env.POSTGRES_USER }} -d postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
         volumeMounts:
         - mountPath: /var/lib/postgresql/data
           name: db-data

@@ -101,9 +101,10 @@ This guide provides detailed instructions for deploying, configuring, and mainta
 - Kubernetes 1.19+
 - Helm 3.0+
 - kubectl configured to connect to your cluster
-- Ingress controller installed
-- cert-manager v1.5.0+ installed (if using SSL)
+- Ingress controller installed (for Minikube: `minikube addons enable ingress`)
+- metrics-server installed (for HPA: `minikube addons enable metrics-server`)
 - Storage class available for persistent volumes
+- cert-manager is **bundled** in `helm/charts/` — no separate installation needed
 
 ### Detailed Installation Steps
 
@@ -131,37 +132,12 @@ git clone https://github.com/HussamShokr/voting-app-k8s.git
 cd voting-app-k8s
 ```
 
-3. **Install cert-manager (if needed)**
-
-This step is essential for SSL certificate management:
-
-```bash
-# Create namespace
-kubectl create namespace cert-manager
-
-# Install cert-manager CRDs
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.crds.yaml
-
-# Add Jetstack Helm repository
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
-
-# Install cert-manager
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --version v1.13.2 \
-  --set installCRDs=true
-  
-# Verify installation
-kubectl get pods -n cert-manager
-```
-
-4. **Customize Configuration**
+3. **Customize Configuration**
 
 Review and modify the values.yaml file:
 
 ```bash
-cd helm-01
+cd helm
 # Edit values.yaml to match your environment
 # Pay special attention to:
 # - Storage classes
@@ -250,9 +226,8 @@ After installation, you can access:
 
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|---------|
-| `global.namespace` | Kubernetes namespace | `default` | `voting-app` |
 | `global.env` | Environment name | `production` | `staging` |
-| `global.hostname` | Hostname for Ingress | `minikube.local` | `vote.example.com` |
+| `global.hostname` | Hostname for Ingress (required) | `""` | `vote.example.com` |
 
 ### Database Configuration
 
@@ -285,7 +260,7 @@ After installation, you can access:
 | `redis.resources.requests.cpu` | CPU request | `250m` | `300m` |
 | `redis.resources.limits.memory` | Memory limit | `128Mi` | `256Mi` |
 | `redis.resources.limits.cpu` | CPU limit | `500m` | `600m` |
-| `redis.persistence.enabled` | Enable persistence | `true` | `true` |
+| `redis.persistence.enabled` | Enable persistence | `false` | `true` |
 | `redis.persistence.storageClass` | Storage class | `""` | `"standard"` |
 | `redis.persistence.size` | PVC size | `1Gi` | `5Gi` |
 
@@ -386,8 +361,6 @@ After installation, you can access:
 | `ingress.annotations` | Ingress annotations | Various | Add custom annotations |
 | `ingress.paths.vote` | Path pattern for Vote UI | `/vote(/\|$)(.*)` | `/app/vote(/\|$)(.*)` |
 | `ingress.paths.result` | Path pattern for Result UI | `/result(/\|$)(.*)` | `/app/result(/\|$)(.*)` |
-| `ingress.paths.grafana` | Path pattern for Grafana | `/grafana(/\|$)(.*)` | `/monitoring/grafana(/\|$)(.*)` |
-| `ingress.paths.loki` | Path pattern for Loki | `/loki(/\|$)(.*)` | `/monitoring/loki(/\|$)(.*)` |
 
 ### Certificate Configuration
 
@@ -408,9 +381,6 @@ After installation, you can access:
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|---------|
 | `networkPolicies.enabled` | Enable network policies | `true` | `true` |
-| `networkPolicies.frontendLabels` | Frontend selector labels | `[app: vote, app: result]` | Custom labels |
-| `networkPolicies.backendLabels` | Backend selector labels | `[app: worker]` | Custom labels |
-| `networkPolicies.databaseLabels` | Database selector labels | `[app: db, app: redis]` | Custom labels |
 
 ## Advanced Features
 
@@ -445,13 +415,13 @@ worker:
 2. **Gradually increase the traffic**:
    ```bash
    # Update to 20% traffic
-   helm upgrade voting-app ./helm-01 --set worker.canary.weight=20
+   helm upgrade voting-app ./helm --set worker.canary.weight=20
    
    # Update to 50% traffic
-   helm upgrade voting-app ./helm-01 --set worker.canary.weight=50
+   helm upgrade voting-app ./helm --set worker.canary.weight=50
    
    # Update to 80% traffic
-   helm upgrade voting-app ./helm-01 --set worker.canary.weight=80
+   helm upgrade voting-app ./helm --set worker.canary.weight=80
    ```
 
 3. **Complete the rollout** by updating the main image and disabling canary:
@@ -531,7 +501,10 @@ spec:
           echo "Backup completed at: $BACKUP_FILE"
         env:
         - name: PGPASSWORD
-          value: postgres
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: postgres-password
         volumeMounts:
         - name: backup-storage
           mountPath: /backups
@@ -595,7 +568,10 @@ spec:
           echo "Restore complete!"
         env:
         - name: PGPASSWORD
-          value: postgres
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: postgres-password
         volumeMounts:
         - name: backup-storage
           mountPath: /backups
@@ -662,72 +638,26 @@ The chart includes network policies that restrict traffic between application ti
 #### Frontend Tier Policy
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: frontend-policy
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: frontend
-  ingress:
-  # Allow ingress from anywhere (for public access)
-  - {}
-  egress:
-  # Allow egress only to backend and database services
-  - to:
-    - podSelector:
-        matchLabels:
-          app: redis
-    ports:
-    - protocol: TCP
-      port: 6379
+# Vote UI: allows public ingress, egress only to Redis
+podSelector: { app: vote }
+# Result UI: allows public ingress, egress only to PostgreSQL
+podSelector: { app: result }
 ```
 
 #### Backend Tier Policy
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: backend-policy
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: backend
-  egress:
-  # Allow egress only to database services
-  - to:
-    - podSelector:
-        matchLabels:
-          app: db
-  - to:
-    - podSelector:
-        matchLabels:
-          app: redis
+# Worker: no ingress, egress to Redis (port 6379) and PostgreSQL (port 5432)
+podSelector: { app: worker }
 ```
 
 #### Database Tier Policy
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: db-policy
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: database
-  ingress:
-  # Allow ingress only from backend and frontend
-  - from:
-    - podSelector:
-        matchLabels:
-          app: worker
-  - from:
-    - podSelector:
-        matchLabels:
-          app: result
+# PostgreSQL: ingress from worker and result only (port 5432)
+podSelector: { app: db }
+# Redis: ingress from vote and worker only (port 6379)
+podSelector: { app: redis }
 ```
 
 These network policies enhance security by limiting the potential attack surface. You can customize them by editing the templates in the `templates/network-policies/` directory.
@@ -742,7 +672,7 @@ To upgrade the application to a new version:
 
 ```bash
 # Update values in values.yaml, then:
-helm upgrade voting-app ./helm-01
+helm upgrade voting-app ./helm
 ```
 
 #### Upgrading Specific Components
@@ -751,13 +681,13 @@ To upgrade just one component:
 
 ```bash
 # Upgrade the vote UI
-helm upgrade voting-app ./helm-01 --set vote.image=kodekloud/examplevotingapp_vote:v2
+helm upgrade voting-app ./helm --set vote.image=kodekloud/examplevotingapp_vote:v2
 
 # Upgrade the result UI
-helm upgrade voting-app ./helm-01 --set result.image=kodekloud/examplevotingapp_result:v2
+helm upgrade voting-app ./helm --set result.image=kodekloud/examplevotingapp_result:v2
 
 # Upgrade the worker
-helm upgrade voting-app ./helm-01 --set worker.image=kodekloud/examplevotingapp_worker:v3
+helm upgrade voting-app ./helm --set worker.image=kodekloud/examplevotingapp_worker:v3
 ```
 
 #### Rollback Procedures
@@ -813,7 +743,7 @@ worker:
 EOF
 
 # Apply the changes
-helm upgrade voting-app ./helm-01 -f hpa-values.yaml
+helm upgrade voting-app ./helm -f hpa-values.yaml
 ```
 
 ### Resource Adjustments
@@ -842,7 +772,7 @@ worker:
 EOF
 
 # Apply the changes
-helm upgrade voting-app ./helm-01 -f resource-values.yaml
+helm upgrade voting-app ./helm -f resource-values.yaml
 ```
 
 ### Certificate Rotation
@@ -881,14 +811,18 @@ postgres=# \q
 To change the database password:
 
 ```bash
-# Create a secret with the new password
-kubectl create secret generic db-password --from-literal=password=NewPasswordHere
+# 1. Update the values and re-deploy (Helm will update the Secret)
+helm upgrade voting-app ./helm \
+  --set global.hostname=minikube.local \
+  --set db.env.POSTGRES_PASSWORD=NewSecurePassword
 
-# Update the deployment
-helm upgrade voting-app ./helm-01 --set db.env.POSTGRES_PASSWORD=NewPasswordHere
+# 2. Restart the DB pod to pick up the new env var
+kubectl rollout restart deployment db
+
+# 3. Also update the password inside PostgreSQL itself
+kubectl exec -it $(kubectl get pods -l app=db -o jsonpath='{.items[0].metadata.name}') \
+  -- psql -U postgres -c "ALTER USER postgres PASSWORD 'NewSecurePassword';"
 ```
-
-Remember to update any applications that need the new password.
 
 ## Monitoring and Alerting
 

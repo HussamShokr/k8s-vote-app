@@ -2,29 +2,32 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: backend-policy
+  name: backend-worker-policy
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: backend
-      app.kubernetes.io/part-of: {{ include "voting-app.name" . }}
-      app: worker
+      app: {{ .Values.worker.name }}
   ingress:
-  # No direct ingress needed for backend
+  # No direct ingress needed — worker pulls from Redis
   egress:
-  # Allow egress only to database services
+  # Allow egress to PostgreSQL
   - to:
     - podSelector:
         matchLabels:
-          app: db
+          app: {{ .Values.db.name }}
     ports:
     - protocol: TCP
       port: 5432
+  # Allow egress to Redis
   - to:
     - podSelector:
         matchLabels:
-          app: redis
+          app: {{ .Values.redis.name }}
     ports:
     - protocol: TCP
       port: 6379
+  # Allow DNS resolution
+  - ports:
+    - protocol: UDP
+      port: 53
 {{- end }}

@@ -1,5 +1,6 @@
-# This is a template for a Job that can be used to restore the database from a backup
-# You would save this to a file, customize the BACKUP_FILE variable, and apply it when needed
+{{- if and .Values.db.enabled .Values.db.restore.enabled }}
+# Restore job: set db.restore.enabled=true and db.restore.restoreFile to the backup path,
+# then run `helm upgrade`. After restore completes, set enabled back to false.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -7,10 +8,6 @@ metadata:
   labels:
     {{- include "voting-app.db.labels" . | nindent 4 }}
     app.kubernetes.io/component: restore
-  annotations:
-    "helm.sh/hook": "post-install, post-upgrade"
-    "helm.sh/hook-weight": "5"
-    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 spec:
   backoffLimit: 3
   template:
@@ -25,41 +22,37 @@ spec:
         - /bin/bash
         - -c
         - |
-          # This Job doesn't run automatically - when you want to restore,
-          # edit this Job YAML, set the backup file name, and apply it manually
-          # For example:
-          # BACKUP_FILE="/backups/postgres-20230101-120000.dump"
-          
-          BACKUP_FILE="{{ .Values.db.backup.restoreFile | default "" }}"
-          
-          # Set appropriate permissions
-          chmod -R 755 /backups
-          
+          BACKUP_FILE="{{ .Values.db.restore.restoreFile }}"
+
           if [ -z "$BACKUP_FILE" ]; then
-            echo "No backup file specified. This job is meant to be customized and applied manually."
-            echo "Available backups:"
-            ls -la /backups
-            exit 0
-          fi
-          
-          if [ ! -f "$BACKUP_FILE" ]; then
-            echo "Backup file $BACKUP_FILE not found!"
+            echo "ERROR: db.restore.restoreFile is not set."
             echo "Available backups:"
             ls -la /backups
             exit 1
           fi
-          
-          echo "Restoring from backup: $BACKUP_FILE"
-          # Drop existing connections and recreate database
-          psql -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='postgres' AND pid <> pg_backend_pid();"
-          
-          # Restore the database
-          pg_restore -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} -d postgres -c -C $BACKUP_FILE
-          
-          echo "Restore complete!"
+
+          if [ ! -f "$BACKUP_FILE" ]; then
+            echo "ERROR: Backup file $BACKUP_FILE not found."
+            echo "Available backups:"
+            ls -la /backups
+            exit 1
+          fi
+
+          echo "Terminating existing connections to postgres database..."
+          psql -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} \
+            -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='postgres' AND pid <> pg_backend_pid();"
+
+          echo "Restoring from: $BACKUP_FILE"
+          pg_restore -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} \
+            -d postgres -c -C "$BACKUP_FILE"
+
+          echo "Restore complete."
         env:
         - name: PGPASSWORD
-          value: {{ .Values.db.env.POSTGRES_PASSWORD }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.name }}-secret
+              key: postgres-password
         resources:
           {{- toYaml .Values.db.backup.resources | nindent 10 }}
         volumeMounts:
@@ -70,3 +63,4 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Values.db.name }}-backup-pvc
       restartPolicy: OnFailure
+{{- end }}

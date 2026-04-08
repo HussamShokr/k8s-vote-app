@@ -1,0 +1,6 @@
+{{/*
+Validation: if ingress is enabled, hostname must be set.
+*/}}
+{{- if and .Values.ingress.enabled (or (not (hasKey .Values.global "hostname")) (eq .Values.global.hostname "") (eq .Values.global.hostname "null")) }}
+{{- fail "global.hostname is required when ingress.enabled=true. Set it with --set global.hostname=<your-hostname>" }}
+{{- end }}
