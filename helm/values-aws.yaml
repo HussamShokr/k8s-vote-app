@@ -1,0 +1,85 @@
+# =============================================================================
+# values-aws.yaml — AWS EKS overrides for the voting-app Helm chart
+#
+# Applied on top of values.yaml by Terraform (addons.tf) and by the
+# setup-aws.sh script.  Only the fields that differ from the defaults
+# are listed here.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Database — use gp3 EBS volumes instead of Minikube's "standard" class
+# -----------------------------------------------------------------------------
+db:
+  persistence:
+    storageClass: "gp3"
+    size: 5Gi        # larger default for real workloads
+  backup:
+    storage:
+      storageClass: "gp3"
+      size: 10Gi
+
+# Redis persistence is off by default (emptyDir) — no change needed.
+# If you enable it, override storageClass here too:
+# redis:
+#   persistence:
+#     storageClass: "gp3"
+
+# -----------------------------------------------------------------------------
+# Ingress — AWS NLB + NGINX specific annotations
+# cert-manager issues a real Let's Encrypt certificate on AWS
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  annotations:
+    # Provided by ingress-nginx deployed via Terraform
+    kubernetes.io/ingress.class: "nginx"
+    # Force HTTPS redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Real client IP (NLB preserves it in TCP mode)
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+  tls:
+    enabled: true     # cert-manager will issue a Let's Encrypt cert
+
+# -----------------------------------------------------------------------------
+# cert-manager — already installed as a Helm sub-chart dependency
+# ClusterIssuer uses ACME HTTP-01 (works with any public NLB hostname)
+# -----------------------------------------------------------------------------
+certManager:
+  enabled: true
+  email: ""          # set with --set certManager.email=you@example.com
+
+cert-manager:
+  installCRDs: true
+
+# -----------------------------------------------------------------------------
+# Resource sizing — slightly larger than Minikube defaults
+# -----------------------------------------------------------------------------
+vote:
+  replicas: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+result:
+  replicas: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"

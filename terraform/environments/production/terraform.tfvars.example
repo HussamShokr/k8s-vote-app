@@ -1,0 +1,37 @@
+# =============================================================================
+# production — terraform.tfvars.example
+# Copy to terraform.tfvars, fill in app_hostname, and run terraform apply.
+# Never commit terraform.tfvars — it is in .gitignore.
+# =============================================================================
+
+aws_region   = "us-east-1"
+app_hostname = "vote.example.com"   # ← change to your domain
+
+# ── VPC ── (10.2.0.0/16 reserved for production — 3 AZs for full HA)
+vpc_cidr             = "10.2.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+private_subnet_cidrs = ["10.2.1.0/24", "10.2.2.0/24", "10.2.3.0/24"]
+public_subnet_cidrs  = ["10.2.101.0/24", "10.2.102.0/24", "10.2.103.0/24"]
+single_nat_gateway   = false   # one NAT per AZ — survives a single AZ failure
+
+# ── EKS ──
+kubernetes_version = "1.29"
+
+# IMPORTANT: lock this down to your office/VPN CIDR before applying
+cluster_endpoint_public_access       = true
+cluster_endpoint_public_access_cidrs = ["YOUR_IP_OR_VPN_CIDR/32"]
+
+# ── Nodes — right-sized for production traffic ──
+node_instance_type = "t3.large"
+node_desired_size  = 3   # one per AZ for even distribution
+node_min_size      = 3   # never scale below 3 — maintains AZ redundancy
+node_max_size      = 10
+node_disk_size     = 30  # larger root volume for log buffers
+
+# ── Add-ons (pin exact versions in production — never use latest) ──
+nginx_ingress_version  = "4.10.1"
+metrics_server_version = "3.12.1"
+
+# ── App ──
+deploy_app        = true
+deploy_monitoring = true   # always on in production

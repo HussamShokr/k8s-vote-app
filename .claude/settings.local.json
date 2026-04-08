@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(tar -tzf kube-prometheus-stack-70.4.1.tgz)",
-      "Bash(tar -tzf loki-stack-2.10.2.tgz)"
+      "Bash(tar -tzf loki-stack-2.10.2.tgz)",
+      "Bash(chmod +x /c/Users/hussa/OneDrive/Documents/k8s-vote-app/k8s-vote-app/setup-aws.sh)"
     ]
   }
 }
