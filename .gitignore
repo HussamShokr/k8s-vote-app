@@ -1,0 +1,191 @@
+# =============================================================================
+# Helm
+# =============================================================================
+
+# Unpacked chart dependencies — only the .tgz bundles in charts/ are committed
+helm/charts/*/
+!helm/charts/*.tgz
+
+# Helm debug / dry-run output
+helm-debug.yaml
+*.helm.yaml
+
+# Local values overrides — never commit environment-specific secrets
+helm/values.local.yaml
+helm/values.*.local.yaml
+values.local.yaml
+values.override.yaml
+production-values.yaml
+staging-values.yaml
+*-values.yaml
+
+# Helm test output
+helm-test-*.txt
+
+# =============================================================================
+# Kubernetes & Secrets
+# =============================================================================
+
+# Kubeconfig — contains cluster credentials
+kubeconfig
+kubeconfig.yaml
+kubeconfig.json
+.kube/
+
+# Any standalone secret manifests you generate locally
+# (the ones in the repo are templates/examples, not real secrets)
+*-secret-generated.yaml
+*-credentials.yaml
+
+# cert-manager issued certificates and private keys
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Sealed Secrets / SOPS encrypted files working copies
+*.dec.yaml
+*.decrypted.yaml
+
+# =============================================================================
+# Environment & Credentials
+# =============================================================================
+
+# dotenv files — never commit real credentials
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Cloud provider credentials
+.aws/
+.azure/
+.gcp/
+credentials
+credentials.json
+service-account.json
+*-keyfile.json
+
+# Terraform state (if infra-as-code is added later)
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+override.tf
+override.tf.json
+
+# =============================================================================
+# OS
+# =============================================================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+
+# =============================================================================
+# Editors & IDEs
+# =============================================================================
+
+# VS Code — keep extensions.json if present
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# JetBrains (IntelliJ, GoLand, PyCharm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim / Neovim
+*.swp
+*.swo
+.netrwhist
+Session.vim
+
+# Emacs
+\#*\#
+.#*
+*.elc
+auto-save-list
+
+# Sublime Text
+*.sublime-workspace
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+
+# =============================================================================
+# Logs & Temp Files
+# =============================================================================
+
+*.log
+*.tmp
+*.temp
+*.pid
+*.cache
+*.bak
+*.orig
+*.rej
+
+# Script output files
+/output/
+/tmp/
+
+# =============================================================================
+# CI/CD
+# =============================================================================
+
+# GitHub Actions local runner artifacts
+.act/
+
+# Jenkins
+.jenkins/
+
+# =============================================================================
+# Claude Code
+# =============================================================================
+
+.claude/
+
+# =============================================================================
+# Misc
+# =============================================================================
+
+# Compressed archives — avoid accidentally committing large dumps or exports
+*.tar.gz
+*.zip
+*.tar
+*.gz
+*.bz2
+# Exception: keep the bundled Helm chart tarballs
+!helm/charts/*.tgz
+
+# Database dumps — should never be committed
+*.dump
+*.sql
+*.sqlite
+*.db
