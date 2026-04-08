@@ -7,6 +7,12 @@ metadata:
     {{- include "voting-app.redis.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.redis.replicas }}
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       {{- include "voting-app.redis.labels" . | nindent 6 }}
@@ -18,6 +24,7 @@ spec:
       containers:
       - name: redis
         image: {{ .Values.redis.image }}
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 6379
           name: redis

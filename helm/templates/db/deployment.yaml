@@ -7,6 +7,10 @@ metadata:
     {{- include "voting-app.db.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.db.replicas }}
+  # Recreate is required: ReadWriteOnce PVC cannot be mounted by two pods simultaneously.
+  # RollingUpdate would leave the new pod stuck Pending until the old pod releases the PVC.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "voting-app.db.labels" . | nindent 6 }}
@@ -18,6 +22,7 @@ spec:
       containers:
       - name: postgres
         image: {{ .Values.db.image }}
+        imagePullPolicy: IfNotPresent
         env:
         - name: POSTGRES_USER
           valueFrom:

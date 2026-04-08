@@ -1,0 +1,13 @@
+{{- if and .Values.vote.enabled .Values.vote.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.vote.name }}-pdb
+  labels:
+    {{- include "voting-app.vote.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.vote.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "voting-app.vote.labels" . | nindent 6 }}
+{{- end }}

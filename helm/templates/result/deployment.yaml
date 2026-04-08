@@ -7,6 +7,12 @@ metadata:
     {{- include "voting-app.result.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.result.replicas }}
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       {{- include "voting-app.result.labels" . | nindent 6 }}
@@ -18,11 +24,17 @@ spec:
       containers:
       - name: result
         image: {{ .Values.result.image }}
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
           name: result
         resources:
           {{- toYaml .Values.result.resources | nindent 10 }}
+        lifecycle:
+          preStop:
+            exec:
+              # Allow load balancer to drain connections before the pod stops
+              command: ["/bin/sh", "-c", "sleep 5"]
         readinessProbe:
           httpGet:
             path: /

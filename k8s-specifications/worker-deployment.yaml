@@ -6,6 +6,12 @@ metadata:
   name: worker
 spec:
   replicas: 1
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: worker
@@ -14,8 +20,43 @@ spec:
       labels:
         app: worker
     spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+      - name: wait-for-db
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL..."
+          until pg_isready -h db -U postgres -d postgres; do
+            echo "PostgreSQL not ready — retrying in 2s"
+            sleep 2
+          done
+          echo "PostgreSQL is ready."
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: postgres-password
+      - name: wait-for-redis
+        image: redis:alpine
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Redis..."
+          until redis-cli -h redis ping | grep -q PONG; do
+            echo "Redis not ready — retrying in 2s"
+            sleep 2
+          done
+          echo "Redis is ready."
       containers:
       - image: kodekloud/examplevotingapp_worker:v2
+        imagePullPolicy: IfNotPresent
         name: worker
         resources:
           requests:
@@ -26,18 +67,12 @@ spec:
             cpu: "500m"
         readinessProbe:
           exec:
-            command:
-            - /bin/sh
-            - -c
-            - "exit 0"
+            command: ["/bin/sh", "-c", "exit 0"]
           initialDelaySeconds: 10
           periodSeconds: 10
         livenessProbe:
           exec:
-            command:
-            - /bin/sh
-            - -c
-            - "exit 0"
+            command: ["/bin/sh", "-c", "exit 0"]
           initialDelaySeconds: 30
           periodSeconds: 30
           failureThreshold: 3

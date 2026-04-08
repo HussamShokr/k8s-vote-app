@@ -1,9 +1,9 @@
 {{- if and .Values.worker.enabled .Values.worker.canary.enabled }}
 {{- /*
   Compute canary replica count from weight percentage.
-  Formula: canary = max(1, round(stableReplicas * weight / (100 - weight)))
-  Example: weight=20, stable=4 → canary = round(4*20/80) = round(1.0) = 1
-           total=5 pods, canary handles ~20% of queue work.
+  Formula: canary = max(1, floor(stableReplicas * weight / (100 - weight)))
+  Example: weight=20, stable=4 → canary = floor(4*20/80) = floor(1.0) = 1
+           total=5 pods → canary handles ~20% of queue work.
 */}}
 {{- $weight := .Values.worker.canary.weight | int }}
 {{- $stable := .Values.worker.replicas | int }}
@@ -20,6 +20,12 @@ metadata:
     # Stable replicas: {{ $stable }}, Canary replicas: {{ $canaryReplicas }}
 spec:
   replicas: {{ $canaryReplicas }}
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       {{- include "voting-app.worker.labels" . | nindent 6 }}
@@ -30,9 +36,49 @@ spec:
         {{- include "voting-app.worker.labels" . | nindent 8 }}
         version: canary
     spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+      - name: wait-for-db
+        image: {{ .Values.db.image }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          until pg_isready -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} -d postgres; do
+            sleep 2
+          done
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.name }}-secret
+              key: postgres-password
+      - name: wait-for-redis
+        image: {{ .Values.redis.image }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          until redis-cli -h {{ .Values.redis.name }} ping | grep -q PONG; do
+            sleep 2
+          done
       containers:
       - name: worker
         image: {{ .Values.worker.canary.image }}
+        imagePullPolicy: IfNotPresent
         resources:
           {{- toYaml .Values.worker.resources | nindent 10 }}
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "exit 0"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "exit 0"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3
 {{- end }}

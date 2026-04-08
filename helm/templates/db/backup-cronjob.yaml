@@ -9,8 +9,9 @@ metadata:
 spec:
   schedule: {{ .Values.db.backup.schedule | quote }}
   concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: {{ .Values.db.backup.retention }}
-  failedJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:

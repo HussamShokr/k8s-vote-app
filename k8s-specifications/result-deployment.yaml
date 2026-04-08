@@ -6,6 +6,12 @@ metadata:
   name: result
 spec:
   replicas: 1
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: result
@@ -16,6 +22,7 @@ spec:
     spec:
       containers:
       - image: kodekloud/examplevotingapp_result:v1
+        imagePullPolicy: IfNotPresent
         name: result
         ports:
         - containerPort: 80
@@ -27,6 +34,10 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "500m"
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5"]
         readinessProbe:
           httpGet:
             path: /

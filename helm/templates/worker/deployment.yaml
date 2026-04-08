@@ -8,6 +8,12 @@ metadata:
     version: stable
 spec:
   replicas: {{ .Values.worker.replicas }}
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       {{- include "voting-app.worker.labels" . | nindent 6 }}
@@ -18,25 +24,56 @@ spec:
         {{- include "voting-app.worker.labels" . | nindent 8 }}
         version: stable
     spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+      # Wait for PostgreSQL to be ready before the worker starts
+      - name: wait-for-db
+        image: {{ .Values.db.image }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL at {{ .Values.db.name }}:5432..."
+          until pg_isready -h {{ .Values.db.name }} -U {{ .Values.db.env.POSTGRES_USER }} -d postgres; do
+            echo "PostgreSQL not ready — retrying in 2s"
+            sleep 2
+          done
+          echo "PostgreSQL is ready."
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.name }}-secret
+              key: postgres-password
+      # Wait for Redis to be ready before the worker starts
+      - name: wait-for-redis
+        image: {{ .Values.redis.image }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Redis at {{ .Values.redis.name }}:6379..."
+          until redis-cli -h {{ .Values.redis.name }} ping | grep -q PONG; do
+            echo "Redis not ready — retrying in 2s"
+            sleep 2
+          done
+          echo "Redis is ready."
       containers:
       - name: worker
         image: {{ .Values.worker.image }}
+        imagePullPolicy: IfNotPresent
         resources:
           {{- toYaml .Values.worker.resources | nindent 10 }}
         readinessProbe:
           exec:
-            command:
-            - /bin/sh
-            - -c
-            - "exit 0"
+            command: ["/bin/sh", "-c", "exit 0"]
           initialDelaySeconds: 10
           periodSeconds: 10
         livenessProbe:
           exec:
-            command:
-            - /bin/sh
-            - -c
-            - "exit 0"
+            command: ["/bin/sh", "-c", "exit 0"]
           initialDelaySeconds: 30
           periodSeconds: 30
           failureThreshold: 3
