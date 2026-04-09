@@ -321,6 +321,31 @@ else
 fi
 
 # =============================================================================
+# CERT-MANAGER CRDs
+# Must be applied before `helm install` because Helm validates ALL resources
+# in the release (including Certificate and ClusterIssuer) before creating
+# anything — even the cert-manager subchart's own CRDs.
+# Applying just the CRDs first breaks the chicken-and-egg deadlock.
+# =============================================================================
+step "Installing cert-manager CRDs"
+
+CERT_MANAGER_VERSION="v1.14.5"
+
+if kubectl get crd certificates.cert-manager.io &>/dev/null 2>&1; then
+  success "cert-manager CRDs already installed."
+else
+  info "Applying cert-manager CRDs (${CERT_MANAGER_VERSION})..."
+  kubectl apply -f \
+    "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.crds.yaml"
+  info "Waiting for CRDs to be established..."
+  kubectl wait --for=condition=established \
+    crd/certificates.cert-manager.io \
+    crd/clusterissuers.cert-manager.io \
+    --timeout=60s
+  success "cert-manager CRDs installed."
+fi
+
+# =============================================================================
 # INSTALL HELM CHART
 # =============================================================================
 step "Installing Helm chart"
