@@ -296,6 +296,16 @@ kubectl wait --namespace ingress-nginx \
   --timeout=120s
 success "Ingress controller is ready."
 
+# The admission webhook runs over HTTPS and takes a few extra seconds to become
+# reachable after the pod is Ready. On Minikube this causes a race condition
+# where Helm's ingress install is rejected with "connection refused".
+# Removing the ValidatingWebhookConfiguration is the standard Minikube
+# workaround — validation is useful in production, not needed for local dev.
+info "Removing ingress admission webhook (Minikube workaround)..."
+kubectl delete validatingwebhookconfiguration ingress-nginx-admission \
+  --ignore-not-found=true
+success "Admission webhook removed."
+
 # =============================================================================
 # STEP 7 — /etc/hosts
 # =============================================================================
