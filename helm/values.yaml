@@ -161,33 +161,22 @@ ingress:
   enabled: true
   name: voting-app-ingress
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
   paths:
     vote: /vote(/|$)(.*)
     result: /result(/|$)(.*)
 
-
-# Certificate Management
+# TLS disabled — accessing via IP/HTTP only.
+# Set certificate.enabled and clusterIssuer.enabled to true and provide a
+# real domain + cert-manager install to re-enable HTTPS.
 certificate:
-  enabled: true
-  name: voting-app-tls
-  secretName: voting-app-tls
-  duration: 2160h  # 90 days
-  renewBefore: 360h  # 15 days
-  organization: "Voting App"
-  wildcardDomain: true
+  enabled: false
 
-# Cluster Issuer for self-signed certificates
 clusterIssuer:
-  enabled: true
-  name: selfsigned-issuer
+  enabled: false
 
-# Cert Manager — controls whether Certificate and ClusterIssuer resources are
-# rendered by this chart. cert-manager itself must be pre-installed as a
-# separate Helm release before this chart is applied (see setup.sh).
 certManager:
-  enabled: true
+  enabled: false
 
 # Monitoring configuration (Prometheus + Grafana via kube-prometheus-stack)
 # Disabled by default — requires Minikube with at least 4 CPUs and 6GB RAM.

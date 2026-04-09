@@ -108,12 +108,6 @@ uninstall() {
     warn "Helm release '$HELM_RELEASE' not found — skipping."
   fi
 
-  if helm status cert-manager -n cert-manager &>/dev/null 2>&1; then
-    info "Removing cert-manager..."
-    helm uninstall cert-manager -n cert-manager
-    success "cert-manager removed."
-  fi
-
   info "Deleting PersistentVolumeClaims..."
   kubectl delete pvc --all --ignore-not-found=true
   success "PVCs deleted."
@@ -327,52 +321,6 @@ else
 fi
 
 # =============================================================================
-# CERT-MANAGER — installed as a separate Helm release BEFORE the voting-app
-#
-# Helm validates ALL resources in a release (Certificate, ClusterIssuer, etc.)
-# before creating anything. If cert-manager were a sub-chart dependency, its
-# CRDs would not exist at validation time and the install would fail.
-# Installing it as an independent release first breaks the deadlock.
-# =============================================================================
-step "Installing cert-manager"
-
-CERT_MANAGER_CHART="${HELM_CHART_DIR}/charts/cert-manager-v1.13.6.tgz"
-
-if helm status cert-manager -n cert-manager &>/dev/null 2>&1; then
-  success "cert-manager already installed."
-else
-  if [[ ! -f "$CERT_MANAGER_CHART" ]]; then
-    die "cert-manager chart not found at ${CERT_MANAGER_CHART}. Is the repo complete?"
-  fi
-
-  info "Installing cert-manager from bundled chart..."
-  helm install cert-manager "$CERT_MANAGER_CHART" \
-    --namespace cert-manager \
-    --create-namespace \
-    --set installCRDs=true \
-    --wait \
-    --timeout 5m
-
-  success "cert-manager installed."
-fi
-
-info "Waiting for cert-manager CRDs to be established..."
-kubectl wait --for=condition=established \
-  crd/certificates.cert-manager.io \
-  crd/clusterissuers.cert-manager.io \
-  crd/issuers.cert-manager.io \
-  --timeout=60s
-success "cert-manager CRDs ready."
-
-info "Waiting for cert-manager pods to be ready..."
-kubectl wait pod \
-  --all \
-  --for=condition=Ready \
-  -n cert-manager \
-  --timeout=120s
-success "cert-manager pods ready."
-
-# =============================================================================
 # INSTALL HELM CHART
 # =============================================================================
 step "Installing Helm chart"
@@ -473,17 +421,17 @@ echo -e "${BOLD}${GREEN}============================================${NC}"
 echo -e "${BOLD}${GREEN}  Voting App is up and running!${NC}"
 echo -e "${BOLD}${GREEN}============================================${NC}"
 echo ""
-echo -e "  ${BOLD}Vote UI    :${NC}  https://${HOSTNAME}/vote"
-echo -e "  ${BOLD}Result UI  :${NC}  https://${HOSTNAME}/result"
+echo -e "  ${BOLD}Vote UI    :${NC}  http://${HOSTNAME}/vote"
+echo -e "  ${BOLD}Result UI  :${NC}  http://${HOSTNAME}/result"
 
 if [[ "$MONITORING" == true ]]; then
-  echo -e "  ${BOLD}Grafana    :${NC}  https://${HOSTNAME}/grafana"
+  echo -e "  ${BOLD}Grafana    :${NC}  http://${HOSTNAME}/grafana"
   echo -e "  ${BOLD}             ${NC}  Username: admin  |  Password: prom-operator"
 fi
 
 echo ""
-echo -e "${YELLOW}Note:${NC} Your browser will show an SSL warning (self-signed cert)."
-echo -e "       Click 'Advanced' → 'Proceed to ${HOSTNAME}' to continue."
+echo -e "${YELLOW}Note:${NC} The app runs over plain HTTP. No SSL warning."
+echo -e "       If the page doesn't load, wait 30 seconds and try again."
 echo ""
 echo -e "To uninstall: ${CYAN}./setup.sh --uninstall${NC}"
 echo ""
