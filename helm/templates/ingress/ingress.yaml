@@ -29,7 +29,7 @@ spec:
       # Default route → Vote UI
       {{- if .Values.vote.enabled }}
       - path: /()(.*)
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ .Values.vote.name }}
@@ -40,7 +40,7 @@ spec:
       # Vote UI
       {{- if .Values.vote.enabled }}
       - path: {{ .Values.ingress.paths.vote | default "/vote(/|$)(.*)" }}
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ .Values.vote.name }}
@@ -51,7 +51,7 @@ spec:
       # Result UI
       {{- if .Values.result.enabled }}
       - path: {{ .Values.ingress.paths.result | default "/result(/|$)(.*)" }}
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ .Values.result.name }}
