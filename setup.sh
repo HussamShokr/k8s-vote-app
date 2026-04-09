@@ -187,10 +187,14 @@ success "Docker daemon is running."
 # =============================================================================
 step "Step 2/7 — Minikube"
 
-if command_exists minikube; then
+if command_exists minikube && minikube version &>/dev/null 2>&1; then
   MK_VERSION=$(minikube version --short)
   success "Minikube $MK_VERSION already installed."
 else
+  if [[ -f /usr/local/bin/minikube ]]; then
+    warn "Existing minikube binary is not executable (wrong architecture) — reinstalling..."
+    sudo rm -f /usr/local/bin/minikube
+  fi
   info "Installing Minikube (arch: ${ARCH})..."
   curl -sSLo /tmp/minikube \
     "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-${ARCH}"
@@ -204,10 +208,14 @@ fi
 # =============================================================================
 step "Step 3/7 — kubectl"
 
-if command_exists kubectl; then
+if command_exists kubectl && kubectl version --client &>/dev/null 2>&1; then
   KB_VERSION=$(kubectl version --client -o json 2>/dev/null | grep -oP '"gitVersion":\s*"\K[^"]+' | head -1)
   success "kubectl $KB_VERSION already installed."
 else
+  if [[ -f /usr/local/bin/kubectl ]]; then
+    warn "Existing kubectl binary is not executable (wrong architecture) — reinstalling..."
+    sudo rm -f /usr/local/bin/kubectl
+  fi
   info "Installing kubectl (arch: ${ARCH})..."
   KUBECTL_VERSION=$(curl -sSL https://dl.k8s.io/release/stable.txt)
   curl -sSLo /tmp/kubectl \
