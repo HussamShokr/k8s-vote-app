@@ -58,6 +58,20 @@ version_gte() {
   [ "$(printf '%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]
 }
 
+# Detect CPU architecture and map to the naming convention each tool uses
+detect_arch() {
+  local raw
+  raw="$(uname -m)"
+  case "$raw" in
+    x86_64)          echo "amd64" ;;
+    aarch64|arm64)   echo "arm64" ;;
+    armv7l)          echo "arm"   ;;
+    *)               die "Unsupported architecture: $raw" ;;
+  esac
+}
+
+ARCH="$(detect_arch)"
+
 # -----------------------------------------------------------------------------
 # Parse arguments
 # -----------------------------------------------------------------------------
@@ -177,11 +191,11 @@ if command_exists minikube; then
   MK_VERSION=$(minikube version --short)
   success "Minikube $MK_VERSION already installed."
 else
-  info "Installing Minikube..."
-  curl -sSLo /tmp/minikube-linux-amd64 \
-    https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-  sudo install /tmp/minikube-linux-amd64 /usr/local/bin/minikube
-  rm /tmp/minikube-linux-amd64
+  info "Installing Minikube (arch: ${ARCH})..."
+  curl -sSLo /tmp/minikube \
+    "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-${ARCH}"
+  sudo install /tmp/minikube /usr/local/bin/minikube
+  rm /tmp/minikube
   success "Minikube installed."
 fi
 
@@ -194,10 +208,10 @@ if command_exists kubectl; then
   KB_VERSION=$(kubectl version --client -o json 2>/dev/null | grep -oP '"gitVersion":\s*"\K[^"]+' | head -1)
   success "kubectl $KB_VERSION already installed."
 else
-  info "Installing kubectl..."
+  info "Installing kubectl (arch: ${ARCH})..."
   KUBECTL_VERSION=$(curl -sSL https://dl.k8s.io/release/stable.txt)
   curl -sSLo /tmp/kubectl \
-    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl"
   sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl
   rm /tmp/kubectl
   success "kubectl $KUBECTL_VERSION installed."
