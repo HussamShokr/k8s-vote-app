@@ -11,10 +11,10 @@ maintainers:
   - name: Admin
     email: admin@example.com
 dependencies:
-  - name: cert-manager
-    version: ~1.13.2
-    repository: https://charts.jetstack.io
-    condition: certManager.enabled
+  # cert-manager is NOT a sub-chart dependency.
+  # It must be installed as a separate Helm release BEFORE this chart because
+  # Helm validates Certificate and ClusterIssuer resources during manifest
+  # construction — before any sub-chart CRDs are applied. See setup.sh.
   - name: kube-prometheus-stack
     version: "70.4.1"
     repository: https://prometheus-community.github.io/helm-charts

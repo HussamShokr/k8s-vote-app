@@ -108,6 +108,12 @@ uninstall() {
     warn "Helm release '$HELM_RELEASE' not found — skipping."
   fi
 
+  if helm status cert-manager -n cert-manager &>/dev/null 2>&1; then
+    info "Removing cert-manager..."
+    helm uninstall cert-manager -n cert-manager
+    success "cert-manager removed."
+  fi
+
   info "Deleting PersistentVolumeClaims..."
   kubectl delete pvc --all --ignore-not-found=true
   success "PVCs deleted."
@@ -321,29 +327,50 @@ else
 fi
 
 # =============================================================================
-# CERT-MANAGER CRDs
-# Must be applied before `helm install` because Helm validates ALL resources
-# in the release (including Certificate and ClusterIssuer) before creating
-# anything — even the cert-manager subchart's own CRDs.
-# Applying just the CRDs first breaks the chicken-and-egg deadlock.
+# CERT-MANAGER — installed as a separate Helm release BEFORE the voting-app
+#
+# Helm validates ALL resources in a release (Certificate, ClusterIssuer, etc.)
+# before creating anything. If cert-manager were a sub-chart dependency, its
+# CRDs would not exist at validation time and the install would fail.
+# Installing it as an independent release first breaks the deadlock.
 # =============================================================================
-step "Installing cert-manager CRDs"
+step "Installing cert-manager"
 
-CERT_MANAGER_VERSION="v1.14.5"
+CERT_MANAGER_CHART="${HELM_CHART_DIR}/charts/cert-manager-v1.13.6.tgz"
 
-if kubectl get crd certificates.cert-manager.io &>/dev/null 2>&1; then
-  success "cert-manager CRDs already installed."
+if helm status cert-manager -n cert-manager &>/dev/null 2>&1; then
+  success "cert-manager already installed."
 else
-  info "Applying cert-manager CRDs (${CERT_MANAGER_VERSION})..."
-  kubectl apply -f \
-    "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.crds.yaml"
-  info "Waiting for CRDs to be established..."
-  kubectl wait --for=condition=established \
-    crd/certificates.cert-manager.io \
-    crd/clusterissuers.cert-manager.io \
-    --timeout=60s
-  success "cert-manager CRDs installed."
+  if [[ ! -f "$CERT_MANAGER_CHART" ]]; then
+    die "cert-manager chart not found at ${CERT_MANAGER_CHART}. Is the repo complete?"
+  fi
+
+  info "Installing cert-manager from bundled chart..."
+  helm install cert-manager "$CERT_MANAGER_CHART" \
+    --namespace cert-manager \
+    --create-namespace \
+    --set installCRDs=true \
+    --wait \
+    --timeout 5m
+
+  success "cert-manager installed."
 fi
+
+info "Waiting for cert-manager CRDs to be established..."
+kubectl wait --for=condition=established \
+  crd/certificates.cert-manager.io \
+  crd/clusterissuers.cert-manager.io \
+  crd/issuers.cert-manager.io \
+  --timeout=60s
+success "cert-manager CRDs ready."
+
+info "Waiting for cert-manager pods to be ready..."
+kubectl wait pod \
+  --all \
+  --for=condition=Ready \
+  -n cert-manager \
+  --timeout=120s
+success "cert-manager pods ready."
 
 # =============================================================================
 # INSTALL HELM CHART

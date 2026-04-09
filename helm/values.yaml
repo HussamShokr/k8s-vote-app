@@ -183,14 +183,11 @@ clusterIssuer:
   enabled: true
   name: selfsigned-issuer
 
-# Cert Manager configuration
-# The tarball is already bundled in charts/ — no separate install needed.
+# Cert Manager — controls whether Certificate and ClusterIssuer resources are
+# rendered by this chart. cert-manager itself must be pre-installed as a
+# separate Helm release before this chart is applied (see setup.sh).
 certManager:
   enabled: true
-
-# Values passed directly to the cert-manager sub-chart (key must match chart name exactly)
-cert-manager:
-  installCRDs: true
 
 # Monitoring configuration (Prometheus + Grafana via kube-prometheus-stack)
 # Disabled by default — requires Minikube with at least 4 CPUs and 6GB RAM.
