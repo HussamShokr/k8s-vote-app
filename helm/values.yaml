@@ -73,7 +73,7 @@ redis:
 vote:
   enabled: true
   name: vote
-  image: kodekloud/examplevotingapp_vote:v1
+  image: dockersamples/examplevotingapp_vote:latest
   replicas: 1
   service:
     type: NodePort
@@ -101,7 +101,7 @@ vote:
 result:
   enabled: true
   name: result
-  image: kodekloud/examplevotingapp_result:v1
+  image: dockersamples/examplevotingapp_result:latest
   replicas: 1
   service:
     type: NodePort
@@ -129,7 +129,7 @@ result:
 worker:
   enabled: true
   name: worker
-  image: kodekloud/examplevotingapp_worker:v2
+  image: dockersamples/examplevotingapp_worker:latest
   replicas: 1
   resources:
     requests:
@@ -149,7 +149,7 @@ worker:
     minAvailable: 1
   canary:
     enabled: true
-    image: kodekloud/examplevotingapp_worker:v2
+    image: dockersamples/examplevotingapp_worker:latest
     replicas: 1
     weight: 20  # Percentage of traffic to route to canary
 

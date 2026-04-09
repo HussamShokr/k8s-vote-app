@@ -55,7 +55,7 @@ spec:
           done
           echo "Redis is ready."
       containers:
-      - image: kodekloud/examplevotingapp_worker:v2
+      - image: dockersamples/examplevotingapp_worker:latest
         imagePullPolicy: IfNotPresent
         name: worker
         resources:

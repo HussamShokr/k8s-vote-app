@@ -21,7 +21,7 @@ spec:
         app: result
     spec:
       containers:
-      - image: kodekloud/examplevotingapp_result:v1
+      - image: dockersamples/examplevotingapp_result:latest
         imagePullPolicy: IfNotPresent
         name: result
         ports:

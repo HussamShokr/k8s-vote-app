@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(tar -tzf kube-prometheus-stack-70.4.1.tgz)",
-      "Bash(tar -tzf loki-stack-2.10.2.tgz)"
+      "Bash(tar -tzf loki-stack-2.10.2.tgz)",
+      "Bash(sed -i 's|kodekloud/examplevotingapp_vote:v1|dockersamples/examplevotingapp_vote:latest|g' \"c:/Users/hussa/OneDrive/Documents/k8s-vote-app/k8s-vote-app/k8s-specifications/vote-deployment.yaml\")",
+      "Bash(sed -i 's|kodekloud/examplevotingapp_result:v1|dockersamples/examplevotingapp_result:latest|g' \"c:/Users/hussa/OneDrive/Documents/k8s-vote-app/k8s-vote-app/k8s-specifications/result-deployment.yaml\")",
+      "Bash(sed -i 's|kodekloud/examplevotingapp_worker:v2|dockersamples/examplevotingapp_worker:latest|g' \"c:/Users/hussa/OneDrive/Documents/k8s-vote-app/k8s-vote-app/k8s-specifications/worker-deployment.yaml\")"
     ]
   }
 }
