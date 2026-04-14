@@ -158,21 +158,28 @@ reset_cluster() {
 
   echo -e "${RED}${BOLD}"
   echo "  WARNING: This is irreversible."
+  echo "  MicroK8s will be fully removed and reinstalled (snap remove --purge + snap install)."
   echo "  All Kubernetes resources, persistent volumes, and addon state will be destroyed."
   echo -e "${NC}"
   read -rp "  Type 'yes' to confirm: " CONFIRM
   [[ "$CONFIRM" != "yes" ]] && die "Reset aborted."
 
-  info "Running 'microk8s reset' — may take a minute..."
-  microk8s reset --destroy-storage 2>/dev/null || microk8s reset
-  success "MicroK8s has been reset to a clean state."
+  # 'microk8s reset' is known to hang when hostpath-storage PVCs are still
+  # bound. A snap remove --purge + reinstall is faster and guaranteed clean.
+  info "Removing MicroK8s (snap remove --purge)..."
+  snap remove microk8s --purge
+  success "MicroK8s removed."
+
+  info "Reinstalling MicroK8s (channel 1.32/stable)..."
+  snap install microk8s --classic --channel=1.32/stable
+  success "MicroK8s reinstalled."
 
   info "Clearing local kubeconfig..."
   rm -f "$HOME/.kube/config"
   success "kubeconfig cleared."
 
   echo ""
-  echo -e "${BOLD}${GREEN}Reset complete.${NC}"
+  echo -e "${BOLD}${GREEN}Reset complete — MicroK8s is fresh.${NC}"
   echo -e "Run ${CYAN}./setup-canonical-k8s.sh [--monitoring] [--hostname=...]${NC} to redeploy."
   echo ""
   exit 0
