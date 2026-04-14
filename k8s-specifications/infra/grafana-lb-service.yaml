@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-lb
+  namespace: voting-app
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: grafana
+  ports:
+    - port: 80
+      targetPort: 3000

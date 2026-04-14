@@ -20,8 +20,8 @@ db:
       cpu: "500m"
   persistence:
     enabled: true
-    storageClass: "standard"
-    size: 1Gi
+    storageClass: "microk8s-hostpath"
+    size: 5Gi
     accessMode: ReadWriteOnce
   env:
     POSTGRES_USER: postgres
@@ -41,7 +41,7 @@ db:
         cpu: "200m"
     storage:
       size: 2Gi
-      storageClass: "standard"
+      storageClass: "microk8s-hostpath"
   restore:
     # Set enabled: true and restoreFile to trigger a one-shot restore Job.
     # After the restore completes, set enabled back to false and upgrade the release.
@@ -65,7 +65,7 @@ redis:
     # Redis is a queue buffer — data is drained to PostgreSQL by the worker.
     # Persistence adds PVC overhead with no meaningful benefit; emptyDir is sufficient.
     enabled: false
-    storageClass: "standard"
+    storageClass: "microk8s-hostpath"
     size: 1Gi
     accessMode: ReadWriteOnce
 
@@ -157,8 +157,9 @@ worker:
 networkPolicies:
   enabled: true
 # Ingress Configuration
+# Ingress is managed manually via k8s-specifications/infra/ (not Helm-managed).
 ingress:
-  enabled: true
+  enabled: false
   name: voting-app-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -182,8 +183,8 @@ certManager:
 # Disabled by default — requires Minikube with at least 4 CPUs and 6GB RAM.
 # Enable with: helm upgrade voting-app . --set monitoring.enabled=true --set monitoring.lokiEnabled=true
 monitoring:
-  enabled: false
-  lokiEnabled: false
+  enabled: true
+  lokiEnabled: true
 
 # kube-prometheus-stack sub-chart values
 kube-prometheus-stack:
@@ -194,8 +195,8 @@ kube-prometheus-stack:
       enabled: false  # Grafana is exposed via the main ingress below if needed
     grafana.ini:
       server:
-        root_url: "%(protocol)s://%(domain)s/grafana"
-        serve_from_sub_path: true
+        root_url: "%(protocol)s://%(domain)s/"
+        serve_from_sub_path: false
   prometheus:
     prometheusSpec:
       serviceMonitorSelectorNilUsesHelmValues: false
@@ -210,5 +211,7 @@ loki-stack:
     isDefault: false
   promtail:
     enabled: true
+    config:
+      lokiAddress: http://voting-app-loki:3100/loki/api/v1/push
   grafana:
     enabled: false  # Use the grafana from kube-prometheus-stack

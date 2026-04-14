@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: voting-app-ingress
+  namespace: voting-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /()(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: vote
+            port:
+              number: 8080
+      - path: /vote(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: vote
+            port:
+              number: 8080
+      - path: /result(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: result
+            port:
+              number: 8081

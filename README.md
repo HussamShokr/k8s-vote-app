@@ -33,6 +33,77 @@ The voting application consists of the following components:
 - **Health checks** via readiness and liveness probes
 - **Service discovery** via Kubernetes DNS
 
+## Canonical Kubernetes (MicroK8s) — Production Setup
+
+This is the recommended deployment path for Ubuntu servers. It uses MicroK8s with MetalLB, nginx ingress, cert-manager, and Prometheus/Grafana/Loki for full observability.
+
+### One-command setup
+
+```bash
+# Basic (HTTP only)
+./setup-canonical-k8s.sh --hostname=vote.example.com
+
+# Full production stack (HTTPS + monitoring)
+./setup-canonical-k8s.sh \
+  --hostname=vote.example.com \
+  --email=admin@example.com \
+  --tls \
+  --monitoring
+
+# Uninstall
+./setup-canonical-k8s.sh --uninstall
+```
+
+### Access endpoints
+
+| Service | URL | Notes |
+|---|---|---|
+| Vote UI | `http://<MetalLB-IP>/vote` | Cast your vote |
+| Result UI | `http://<MetalLB-IP>/result` | Live results |
+| Grafana | `http://<MetalLB-IP+1>` | admin / prom-operator |
+
+> **MetalLB IP range:** `192.168.1.200–192.168.1.214`
+> The nginx ingress controller gets the first IP in the range; Grafana's LoadBalancer gets the next one.
+> Override the range with `--metallb-ips=<start>-<end>`.
+
+### Infrastructure manifests
+
+Ingress and auxiliary services are managed **manually** (not via Helm) so they survive Helm upgrades:
+
+```
+k8s-specifications/infra/
+├── ingress-lb-service.yaml      # MetalLB LoadBalancer for the nginx ingress controller
+├── voting-app-ingress.yaml      # Main ingress: /vote → vote:8080, /result → result:8081
+├── result-assets-ingress.yaml   # Socket.IO / static assets with sticky-session affinity
+├── grafana-lb-service.yaml      # Dedicated LoadBalancer IP for Grafana
+└── loki-dns-alias.yaml          # ExternalName alias so Promtail resolves "voting-app-loki"
+```
+
+Apply or re-apply at any time:
+
+```bash
+kubectl apply -f k8s-specifications/infra/
+```
+
+### Loki log queries (in Grafana → Explore)
+
+Stream all app logs:
+
+```logql
+{namespace="voting-app"}
+```
+
+Structured query with level extraction:
+
+```logql
+{namespace="voting-app"}
+  | regexp `(?P<level>(?i)info|warn|error|fatal|panic)`
+  |~ `(?i)(error|exception|fatal|panic|Processing vote|GET /vote|GET /result|performing query)`
+  | line_format `[{{.level}}] pod={{.pod}} app={{.app}} >> {{.line}}`
+```
+
+---
+
 ## Prerequisites
 
 - Kubernetes cluster (Minikube, kind, EKS, GKE, AKS, etc.)

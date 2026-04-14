@@ -321,6 +321,28 @@ info "Updating Helm chart dependencies..."
 helm dependency update "$HELM_CHART_DIR"
 success "Dependencies updated."
 
+# Install Prometheus Operator CRDs before the chart so Helm can validate
+# ServiceMonitor / PodMonitor resources during rendering.
+step "Installing Prometheus Operator CRDs"
+kubectl apply --server-side \
+  -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml \
+  2>/dev/null || true
+
+# Remove the standalone operator deployment so it doesn't conflict with the
+# Helm-managed one inside kube-prometheus-stack.
+for resource in \
+  "deployment/prometheus-operator" \
+  "service/prometheus-operator" \
+  "serviceaccount/prometheus-operator"; do
+  kubectl delete "$resource" -n default --ignore-not-found=true
+done
+for resource in \
+  "clusterrole/prometheus-operator" \
+  "clusterrolebinding/prometheus-operator"; do
+  kubectl delete "$resource" --ignore-not-found=true
+done
+success "Prometheus Operator CRDs installed."
+
 # Build Helm arguments
 HELM_ARGS=(
   --namespace "$NAMESPACE"
@@ -359,6 +381,19 @@ else
   info "Installing release '$HELM_RELEASE'..."
   helm install "$HELM_RELEASE" "$HELM_CHART_DIR" "${HELM_ARGS[@]}"
   success "Helm release installed."
+fi
+
+# =============================================================================
+# APPLY INFRASTRUCTURE MANIFESTS
+# =============================================================================
+step "Applying infrastructure manifests"
+
+INFRA_DIR="$(dirname "$0")/k8s-specifications/infra"
+if [[ -d "$INFRA_DIR" ]]; then
+  kubectl apply -f "$INFRA_DIR/"
+  success "Infrastructure manifests applied."
+else
+  warn "Infra manifest directory not found at '$INFRA_DIR' — skipping."
 fi
 
 # =============================================================================

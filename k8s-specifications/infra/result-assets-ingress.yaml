@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: result-assets-ingress
+  namespace: voting-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "result-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /(socket\.io\.js|socket\.io/.*|angular\.min\.js|app\.js|stylesheets/.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: result
+            port:
+              number: 8081
