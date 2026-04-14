@@ -161,12 +161,12 @@ certManager:
   enabled: false
 
 # -----------------------------------------------------------------------------
-# Monitoring — disabled by default; enable via --monitoring flag
+# Monitoring — always on in production.
 # Requires the node to have at least 8 GB RAM available to the cluster.
 # -----------------------------------------------------------------------------
 monitoring:
-  enabled: false
-  lokiEnabled: false
+  enabled: true
+  lokiEnabled: true
 
 kube-prometheus-stack:
   grafana:
