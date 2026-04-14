@@ -175,7 +175,9 @@ reset_cluster() {
   success "MicroK8s reinstalled."
 
   info "Clearing local kubeconfig..."
-  rm -f "$HOME/.kube/config"
+  REAL_HOME="${SUDO_USER:+$(getent passwd "$SUDO_USER" | cut -d: -f6)}"
+  REAL_HOME="${REAL_HOME:-$HOME}"
+  rm -f "$REAL_HOME/.kube/config"
   success "kubeconfig cleared."
 
   echo ""
@@ -236,9 +238,16 @@ success "MicroK8s is ready."
 step "Step 2/6 — kubectl"
 
 # Configure standard kubectl to use MicroK8s credentials
-mkdir -p "$HOME/.kube"
-microk8s config > "$HOME/.kube/config"
-chmod 600 "$HOME/.kube/config"
+# When invoked via sudo, write kubeconfig to the invoking user's home dir,
+# not root's, so plain 'kubectl' works for that user after the script exits.
+REAL_HOME="${SUDO_USER:+$(getent passwd "$SUDO_USER" | cut -d: -f6)}"
+REAL_HOME="${REAL_HOME:-$HOME}"
+REAL_USER="${SUDO_USER:-$USER}"
+
+mkdir -p "$REAL_HOME/.kube"
+microk8s config > "$REAL_HOME/.kube/config"
+chmod 600 "$REAL_HOME/.kube/config"
+chown "$REAL_USER":"$REAL_USER" "$REAL_HOME/.kube/config" 2>/dev/null || true
 
 if ! command_exists kubectl; then
   info "Installing kubectl..."
