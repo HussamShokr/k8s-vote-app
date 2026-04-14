@@ -9,6 +9,7 @@
 #   ./setup-canonical-k8s.sh --tls                        # Enable TLS with Let's Encrypt
 #   ./setup-canonical-k8s.sh --monitoring --tls           # Full production stack
 #   ./setup-canonical-k8s.sh --uninstall                  # Remove the Helm release and PVCs
+#   ./setup-canonical-k8s.sh --reset                      # Wipe MicroK8s completely (fresh slate)
 #
 # Required flags when --tls is used:
 #   --hostname=<domain>    Your public domain name (e.g. vote.example.com)
@@ -35,6 +36,7 @@ METALLB_IPS=""
 MONITORING=false
 TLS=false
 UNINSTALL=false
+RESET=false
 KUBECTL_WAIT_TIMEOUT=300s
 
 # -----------------------------------------------------------------------------
@@ -85,6 +87,7 @@ for arg in "$@"; do
     --monitoring)        MONITORING=true ;;
     --tls)               TLS=true ;;
     --uninstall)         UNINSTALL=true ;;
+    --reset)             RESET=true ;;
     --hostname=*)        HOSTNAME="${arg#*=}" ;;
     --email=*)           EMAIL="${arg#*=}" ;;
     --metallb-ips=*)     METALLB_IPS="${arg#*=}" ;;
@@ -101,6 +104,8 @@ Options:
   --metallb-ips=<range>    IP range for MetalLB LoadBalancer (e.g. 192.168.1.100-192.168.1.110)
   --namespace=<ns>         Kubernetes namespace (default: voting-app)
   --uninstall              Remove Helm release and PVCs
+  --reset                  Full MicroK8s wipe — removes ALL workloads, addons, and data.
+                           Run setup again afterward for a fresh install.
   --help                   Show this message
 EOF
       exit 0
@@ -144,6 +149,36 @@ uninstall() {
 }
 
 [[ "$UNINSTALL" == true ]] && uninstall
+
+# =============================================================================
+# RESET  (--reset)  — full MicroK8s wipe, ready for a fresh install
+# =============================================================================
+reset_cluster() {
+  step "Resetting MicroK8s — this will DELETE all workloads, addons, volumes, and data"
+
+  echo -e "${RED}${BOLD}"
+  echo "  WARNING: This is irreversible."
+  echo "  All Kubernetes resources, persistent volumes, and addon state will be destroyed."
+  echo -e "${NC}"
+  read -rp "  Type 'yes' to confirm: " CONFIRM
+  [[ "$CONFIRM" != "yes" ]] && die "Reset aborted."
+
+  info "Running 'microk8s reset' — may take a minute..."
+  microk8s reset --destroy-storage 2>/dev/null || microk8s reset
+  success "MicroK8s has been reset to a clean state."
+
+  info "Clearing local kubeconfig..."
+  rm -f "$HOME/.kube/config"
+  success "kubeconfig cleared."
+
+  echo ""
+  echo -e "${BOLD}${GREEN}Reset complete.${NC}"
+  echo -e "Run ${CYAN}./setup-canonical-k8s.sh [--monitoring] [--hostname=...]${NC} to redeploy."
+  echo ""
+  exit 0
+}
+
+[[ "$RESET" == true ]] && reset_cluster
 
 # =============================================================================
 # CHECK OS
