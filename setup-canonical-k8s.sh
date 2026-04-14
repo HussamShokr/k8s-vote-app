@@ -35,6 +35,7 @@ EMAIL=""
 METALLB_IPS=""
 MONITORING=false
 TLS=false
+SELF_SIGNED=false
 UNINSTALL=false
 RESET=false
 KUBECTL_WAIT_TIMEOUT=300s
@@ -86,6 +87,7 @@ for arg in "$@"; do
   case $arg in
     --monitoring)        MONITORING=true ;;
     --tls)               TLS=true ;;
+    --self-signed)       TLS=true; SELF_SIGNED=true ;;
     --uninstall)         UNINSTALL=true ;;
     --reset)             RESET=true ;;
     --hostname=*)        HOSTNAME="${arg#*=}" ;;
@@ -99,7 +101,9 @@ Usage: $0 [OPTIONS]
 Options:
   --monitoring             Deploy Prometheus, Grafana, and Loki (requires 8+ GB RAM)
   --tls                    Enable HTTPS with Let's Encrypt (requires --hostname and --email)
-  --hostname=<domain>      Public domain for ingress (default: voting.local)
+  --self-signed            Enable HTTPS with a self-signed cert — no domain or email needed.
+                           Perfect for LAN/private network use.
+  --hostname=<domain>      Domain or local hostname for ingress (default: voting.local)
   --email=<email>          Email for Let's Encrypt registration (required with --tls)
   --metallb-ips=<range>    IP range for MetalLB LoadBalancer (e.g. 192.168.1.100-192.168.1.110)
   --namespace=<ns>         Kubernetes namespace (default: voting-app)
@@ -115,10 +119,10 @@ EOF
 done
 
 # Validate TLS requirements
-if [[ "$TLS" == true ]]; then
+if [[ "$TLS" == true && "$SELF_SIGNED" == false ]]; then
   [[ -z "$EMAIL" ]] && die "--email is required when --tls is used. e.g. --email=admin@example.com"
   [[ "$HOSTNAME" == "voting.local" ]] && \
-    die "--hostname must be a real public domain when --tls is used. e.g. --hostname=vote.example.com"
+    die "--hostname must be a real public domain when --tls is used. For LAN use, try --self-signed instead."
 fi
 
 # =============================================================================
@@ -415,12 +419,22 @@ if [[ "$TLS" == true ]]; then
   HELM_ARGS+=(
     --set "certificate.enabled=true"
     --set "clusterIssuer.enabled=true"
-    --set "clusterIssuer.type=letsencrypt"
-    --set "clusterIssuer.email=${EMAIL}"
   )
-  info "TLS (Let's Encrypt): enabled for ${HOSTNAME}"
+  if [[ "$SELF_SIGNED" == true ]]; then
+    HELM_ARGS+=(
+      --set "clusterIssuer.type=selfSigned"
+    )
+    info "TLS (self-signed cert): enabled for ${HOSTNAME}"
+    warn "Browsers will show a security warning — click 'Advanced → Proceed' to continue."
+  else
+    HELM_ARGS+=(
+      --set "clusterIssuer.type=letsencrypt"
+      --set "clusterIssuer.email=${EMAIL}"
+    )
+    info "TLS (Let's Encrypt): enabled for ${HOSTNAME}"
+  fi
 else
-  info "TLS: disabled (HTTP only). Use --tls to enable HTTPS."
+  info "TLS: disabled (HTTP only). Use --tls or --self-signed to enable HTTPS."
 fi
 
 # Install or upgrade
@@ -528,6 +542,14 @@ INGRESS_IP=$(kubectl get svc -n ingress-nginx \
 
 PROTO="http"
 [[ "$TLS" == true ]] && PROTO="https"
+
+# Also update the ingress annotation to force HTTPS redirect when TLS is on
+if [[ "$TLS" == true ]]; then
+  kubectl annotate ingress voting-app-ingress \
+    nginx.ingress.kubernetes.io/ssl-redirect="true" \
+    nginx.ingress.kubernetes.io/force-ssl-redirect="true" \
+    -n "$NAMESPACE" --overwrite 2>/dev/null || true
+fi
 
 echo ""
 echo -e "${BOLD}${GREEN}============================================================${NC}"
