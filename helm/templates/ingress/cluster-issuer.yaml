@@ -8,5 +8,21 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
+  {{- if eq (.Values.clusterIssuer.type | default "selfSigned") "letsencrypt" }}
+  acme:
+    server: {{ .Values.clusterIssuer.server | default "https://acme-v02.api.letsencrypt.org/directory" }}
+    email: {{ required "clusterIssuer.email is required when clusterIssuer.type=letsencrypt" .Values.clusterIssuer.email }}
+    privateKeySecretRef:
+      name: {{ .Values.clusterIssuer.name }}-acme-key
+    solvers:
+    - http01:
+        ingress:
+          {{- if .Values.ingress.className }}
+          ingressClassName: {{ .Values.ingress.className }}
+          {{- else }}
+          class: nginx
+          {{- end }}
+  {{- else }}
   selfSigned: {}
+  {{- end }}
 {{- end }}

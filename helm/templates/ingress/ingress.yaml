@@ -16,6 +16,9 @@ metadata:
     cert-manager.io/cluster-issuer: {{ .Values.clusterIssuer.name | quote }}
     {{- end }}
 spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   {{- if and .Values.certificate.enabled .Values.clusterIssuer.enabled .Values.global.hostname }}
   tls:
   - hosts:

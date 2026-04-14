@@ -1,0 +1,220 @@
+# =============================================================================
+# values-production.yaml — Production overrides for Canonical Kubernetes (MicroK8s)
+#
+# Apply with:
+#   helm install voting-app ./helm \
+#     --namespace voting-app \
+#     --values ./helm/values-production.yaml \
+#     --set global.hostname=vote.example.com
+#
+# Or via setup-canonical-k8s.sh (this file is applied automatically).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global
+# -----------------------------------------------------------------------------
+global:
+  env: production
+  # hostname is set via --set global.hostname=<domain> at deploy time.
+  # Do NOT hardcode a domain here — it belongs in the deploy command.
+  hostname: ""
+
+# -----------------------------------------------------------------------------
+# PostgreSQL — increased resources + microk8s-hostpath storage
+# -----------------------------------------------------------------------------
+db:
+  persistence:
+    storageClass: "microk8s-hostpath"
+    size: 5Gi
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  backup:
+    enabled: true
+    schedule: "0 1 * * *"
+    retention: 14
+    storage:
+      size: 10Gi
+      storageClass: "microk8s-hostpath"
+
+# -----------------------------------------------------------------------------
+# Redis — emptyDir is sufficient (worker drains queue to Postgres)
+# -----------------------------------------------------------------------------
+redis:
+  persistence:
+    enabled: false
+
+# -----------------------------------------------------------------------------
+# Vote UI — 2 replicas, ClusterIP (traffic via ingress only)
+# -----------------------------------------------------------------------------
+vote:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 80
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+# -----------------------------------------------------------------------------
+# Result UI — 2 replicas, ClusterIP
+# -----------------------------------------------------------------------------
+result:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8081
+    targetPort: 80
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+# -----------------------------------------------------------------------------
+# Worker — 2 replicas; canary off until a new image is ready to test
+# -----------------------------------------------------------------------------
+worker:
+  replicas: 2
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  pdb:
+    enabled: true
+    minAvailable: 1
+  canary:
+    enabled: false
+
+# -----------------------------------------------------------------------------
+# Network Policies — always on in production
+# -----------------------------------------------------------------------------
+networkPolicies:
+  enabled: true
+
+# -----------------------------------------------------------------------------
+# Ingress — use the MicroK8s nginx ingress class
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  name: voting-app-ingress
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+
+# -----------------------------------------------------------------------------
+# TLS — disabled by default; enable via --tls flag in setup-canonical-k8s.sh.
+# When enabled, cert-manager + Let's Encrypt are used automatically.
+# -----------------------------------------------------------------------------
+certificate:
+  enabled: false
+  name: voting-app-tls
+  secretName: voting-app-tls-secret
+  duration: 2160h    # 90 days (Let's Encrypt max)
+  renewBefore: 360h  # Renew 15 days before expiry
+  organization: "Voting App"
+  wildcardDomain: false
+
+clusterIssuer:
+  enabled: false
+  name: letsencrypt-prod
+  type: letsencrypt   # letsencrypt | selfSigned
+  email: ""           # Set via --set clusterIssuer.email=<email>
+  server: "https://acme-v02.api.letsencrypt.org/directory"
+
+certManager:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Monitoring — disabled by default; enable via --monitoring flag
+# Requires the node to have at least 8 GB RAM available to the cluster.
+# -----------------------------------------------------------------------------
+monitoring:
+  enabled: false
+  lokiEnabled: false
+
+kube-prometheus-stack:
+  grafana:
+    enabled: true
+    adminPassword: prom-operator
+    ingress:
+      enabled: false
+    grafana.ini:
+      server:
+        root_url: "%(protocol)s://%(domain)s/grafana"
+        serve_from_sub_path: true
+    persistence:
+      enabled: true
+      storageClassName: "microk8s-hostpath"
+      size: 2Gi
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: "microk8s-hostpath"
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 10Gi
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: "microk8s-hostpath"
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 2Gi
+
+loki-stack:
+  loki:
+    enabled: true
+    isDefault: false
+    persistence:
+      enabled: true
+      storageClassName: "microk8s-hostpath"
+      size: 10Gi
+  promtail:
+    enabled: true
+  grafana:
+    enabled: false
