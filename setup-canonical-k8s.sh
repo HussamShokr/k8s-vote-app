@@ -373,8 +373,30 @@ if [[ ! -d "$HELM_CHART_DIR" ]]; then
 fi
 
 info "Updating Helm chart dependencies..."
-helm dependency update "$HELM_CHART_DIR"
-success "Dependencies updated."
+CHARTS_CACHED=false
+if ls "$HELM_CHART_DIR/charts/"*.tgz &>/dev/null 2>&1; then
+  CHARTS_CACHED=true
+fi
+
+DEPS_OK=false
+for attempt in 1 2 3; do
+  if helm dependency update "$HELM_CHART_DIR"; then
+    DEPS_OK=true
+    break
+  fi
+  warn "Dependency update failed (attempt $attempt/3)..."
+  [[ $attempt -lt 3 ]] && info "Retrying in 15s..." && sleep 15
+done
+
+if [[ "$DEPS_OK" == false ]]; then
+  if [[ "$CHARTS_CACHED" == true ]]; then
+    warn "Download failed — using cached charts from a previous run."
+    helm dependency build "$HELM_CHART_DIR" 2>/dev/null || true
+  else
+    die "Helm dependency update failed after 3 attempts and no cached charts found. Check your internet connection."
+  fi
+fi
+success "Dependencies ready."
 
 # Install Prometheus Operator CRDs before the chart so Helm can validate
 # ServiceMonitor / PodMonitor resources during rendering.
