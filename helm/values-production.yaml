@@ -182,6 +182,14 @@ kube-prometheus-stack:
       enabled: true
       storageClassName: "microk8s-hostpath"
       size: 2Gi
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "300m"
+        memory: "512Mi"
+
   prometheus:
     prometheusSpec:
       serviceMonitorSelectorNilUsesHelmValues: false
@@ -194,9 +202,24 @@ kube-prometheus-stack:
             resources:
               requests:
                 storage: 10Gi
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "500m"
+          memory: "1Gi"
+
   alertmanager:
     enabled: true
     alertmanagerSpec:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "200m"
+          memory: "256Mi"
       storage:
         volumeClaimTemplate:
           spec:
@@ -206,6 +229,33 @@ kube-prometheus-stack:
               requests:
                 storage: 2Gi
 
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "300m"
+        memory: "256Mi"
+
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+
 loki-stack:
   loki:
     enabled: true
@@ -214,7 +264,21 @@ loki-stack:
       enabled: true
       storageClassName: "microk8s-hostpath"
       size: 10Gi
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "300m"
+        memory: "512Mi"
   promtail:
     enabled: true
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
   grafana:
     enabled: false
